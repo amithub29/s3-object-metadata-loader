@@ -6,7 +6,6 @@ table = 'S3_object_metadata'
 
 
 def get_metadata(bucket, key):
-
     metadata = s3_client.head_object(
         Bucket=bucket,
         Key=key
@@ -16,19 +15,36 @@ def get_metadata(bucket, key):
 
 
 def get_userid(bucket, key):
-
     tagset = s3_client.get_object_tagging(
         Bucket=bucket,
         Key=key
     )
+
     user_id = tagset['TagSet'][0]['Value']
     return user_id
 
 
-def lambda_handler(event, context):
+def delete_item(bucket, key):
+    db_client.delete_item(
+        TableName=table,
+        Key={
+            'bucket': {'S': bucket},
+            'key': {'S': key},
+        }
+    )
 
+
+def lambda_handler(event, context):
+    event_name = event['Records'][0]['eventName']
     bucket = event['Records'][0]['s3']['bucket']['name']
     key = event['Records'][0]['s3']['object']['key']
+
+    if event_name == 'ObjectRemoved:Delete':
+        delete_item(bucket, key)
+        return {
+            'statusCode': 200,
+        }
+
     size = event['Records'][0]['s3']['object']['size']
     timestamp = event['Records'][0]['eventTime']
     region = event['Records'][0]['awsRegion']
@@ -53,9 +69,3 @@ def lambda_handler(event, context):
         'statusCode': 200,
     }
 
-# User-ID: admin
-# Bucket: image-store-bucket-891377355669
-# Region: us-east-1
-# Key: 04-06-2024/input.txt
-# Size: 10272
-# Timestamp: 2024-06-08T20:49:02.834Z
